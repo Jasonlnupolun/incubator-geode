@@ -40,9 +40,7 @@ dependencyVersions.load(new FileInputStream("${project.projectDir}/gradle/depend
 dependencyVersions.keys().each{ k -> project.ext[k] = dependencyVersions[k]}
 
 allprojects {
-
-  version = versionNumber + releaseType
-  ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+  version = versionNumber
 
   // We want to see all test results.  This is equivalatent to setting --continue
   // on the command line.
