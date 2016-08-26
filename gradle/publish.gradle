@@ -14,17 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-// This snippet is required so that the root project does not insist on needing to be signed.
-gradle.projectsEvaluated { g ->
-  g.rootProject.signing {
-    required { false }
-  }
-}
-
 subprojects {
   apply plugin: 'com.bmuschko.nexus'
-
+  
   extraArchive {
     sources = true
     javadoc = true
@@ -32,7 +24,7 @@ subprojects {
   }
   
   nexus {
-    sign = false
+    sign = true
     repositoryUrl = 'https://repository.apache.org/service/local/staging/deploy/maven2'
     snapshotRepositoryUrl = 'https://repository.apache.org/content/repositories/snapshots'
   }
@@ -102,6 +94,29 @@ subprojects {
           id 'libs-release'
           name 'Spring Maven libs-release Repository'
           url 'http://repo.spring.io/libs-release'
+        }
+      }
+    }
+  }
+  
+  // The nexus plugin reads authentication from ~/.gradle/gradle.properties but the
+  // jenkins server stores publishing credentials in ~/.m2/settings.xml (maven).
+  // We match on the expected snapshot repository id.
+  afterEvaluate {
+    if (!isReleaseVersion && System.env.USER == 'jenkins') {
+      def settingsXml = new File(System.getProperty('user.home'), '.m2/settings.xml')
+      if (settingsXml.exists()) {
+        def snapshotCreds = new XmlSlurper().parse(settingsXml).servers.server.find { server ->
+          server.id.text() == 'apache.snapshots.https'
+        }
+  
+        if (snapshotCreds != null) {
+          tasks.uploadArchives.doFirst {
+            repositories().withType(MavenDeployer).each { repo ->
+              repo.snapshotRepository.authentication.userName = snapshotCreds.username.text()
+              repo.snapshotRepository.authentication.password = snapshotCreds.password.text()
+            }
+          }
         }
       }
     }
